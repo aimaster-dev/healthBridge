@@ -91,9 +91,9 @@ const ContactUs: React.FC = () => {
                   <div className="ml-4">
                     <h4 className="text-lg font-medium text-gray-900">Our Location</h4>
                     <p className="mt-1 text-gray-600">
-                      Arogyam Kiosk<br />
-                      Retang, C.V.Raman<br />
-                      Bhubanewsar, Odisha 752054
+                      HealthBridge<br />
+                      1138 Overlook Ave<br />
+                      Hayward, CA 94542
                     </p>
                   </div>
                 </div>
@@ -105,7 +105,7 @@ const ContactUs: React.FC = () => {
                   <div className="ml-4">
                     <h4 className="text-lg font-medium text-gray-900">Phone</h4>
                     <p className="mt-1 text-gray-600">
-                      8252228793
+                      (415)-598-1744
                     </p>
                   </div>
                 </div>
@@ -117,7 +117,7 @@ const ContactUs: React.FC = () => {
                   <div className="ml-4">
                     <h4 className="text-lg font-medium text-gray-900">Email</h4>
                     <p className="mt-1 text-gray-600">
-                      sudhaanshuu@gmail.com
+                      devzying@gmail.com
                     </p>
                   </div>
                 </div>

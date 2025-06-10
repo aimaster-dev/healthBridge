@@ -75,7 +75,7 @@ const Login: React.FC = () => {
         <div className="text-center">
           <Link to="/" className="inline-block">
             <h2 className="text-3xl font-bold bg-gradient-to-r from-red-600 via-pink-500 to-orange-500 text-transparent bg-clip-text">
-              Arogyam Kiosk
+              HealthBridge
             </h2>
           </Link>
           <h2 className="mt-6 text-2xl font-bold text-gray-900">

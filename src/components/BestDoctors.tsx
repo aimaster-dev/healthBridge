@@ -50,18 +50,30 @@ const BestDoctors: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([20.5937, 78.9629]); // Default to center of India
+  const [mapCenter, setMapCenter] = useState<[number, number]>([34.0489, -111.0937]); // Default to center of Arizona
   const [zoom, setZoom] = useState(4);
 
   const cities: City[] = [
-    { name: 'Delhi', latitude: 28.6139, longitude: 77.2090 },
-    { name: 'Mumbai', latitude: 19.0760, longitude: 72.8777 },
-    { name: 'Bangalore', latitude: 12.9716, longitude: 77.5946 },
-    { name: 'Chennai', latitude: 13.0827, longitude: 80.2707 },
-    { name: 'Kolkata', latitude: 22.5726, longitude: 88.3639 },
-    { name: 'Hyderabad', latitude: 17.3850, longitude: 78.4867 },
-    { name: 'Pune', latitude: 18.5204, longitude: 73.8567 },
-    { name: 'Ahmedabad', latitude: 23.0225, longitude: 72.5714 },
+    { name: 'Phoenix',       latitude: 33.4484, longitude: -112.0740 },
+    { name: 'Tucson',        latitude: 32.2226, longitude: -110.9747 },
+    { name: 'Mesa',          latitude: 33.4152, longitude: -111.8315 },
+    { name: 'Chandler',      latitude: 33.3062, longitude: -111.8413 },
+    { name: 'Scottsdale',    latitude: 33.4942, longitude: -111.9261 },
+    { name: 'Glendale',      latitude: 33.5387, longitude: -112.1860 },
+    { name: 'Gilbert',       latitude: 33.3528, longitude: -111.7890 },
+    { name: 'Tempe',         latitude: 33.4255, longitude: -111.9400 },
+    { name: 'Peoria',        latitude: 33.5806, longitude: -112.2374 },
+    { name: 'Surprise',      latitude: 33.6292, longitude: -112.3679 },
+    { name: 'Yuma',          latitude: 32.6927, longitude: -114.6277 },
+    { name: 'Flagstaff',     latitude: 35.1983, longitude: -111.6513 },
+    { name: 'Avondale',      latitude: 33.4356, longitude: -112.3496 },
+    { name: 'Goodyear',      latitude: 33.4353, longitude: -112.3577 },
+    { name: 'Lake Havasu City', latitude: 34.4839, longitude: -114.3225 },
+    { name: 'Buckeye',       latitude: 33.3703, longitude: -112.5838 },
+    { name: 'Casa Grande',   latitude: 32.8795, longitude: -111.7574 },
+    { name: 'Sierra Vista',  latitude: 31.5455, longitude: -110.2773 },
+    { name: 'Maricopa',      latitude: 33.0581, longitude: -112.0476 },
+    { name: 'Prescott',      latitude: 34.5400, longitude: -112.4685 },
   ];
 
   useEffect(() => {
@@ -71,7 +83,7 @@ const BestDoctors: React.FC = () => {
       setZoom(12);
     } else {
       setDoctors([]);
-      setMapCenter([20.5937, 78.9629]);
+      setMapCenter([34.0489, -111.0937]);
       setZoom(4);
     }
   }, [selectedCity]);
@@ -134,7 +146,7 @@ const BestDoctors: React.FC = () => {
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
-              All India
+              All Arizona
             </button>
             {cities.map((city) => (
               <button

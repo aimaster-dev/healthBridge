@@ -18,7 +18,7 @@ const Chatbot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { 
-      text: "Hello! I'm Arogyam Assistant. How can I help you today?", 
+      text: "Hello! I'm HealthBridge Assistant. How can I help you today?", 
       isBot: true 
     },
   ]);
@@ -127,8 +127,18 @@ const Chatbot: React.FC = () => {
 
   const getBotResponse = async (userInput: string): Promise<string> => {
     try {
+      // const response = await fetch(
+      //   'https://api-inference.huggingface.co/models/google/flan-t5-large',
+      //   {
+      //     method: 'POST',
+      //     headers: {
+      //       'Authorization': `Bearer ${import.meta.env.VITE_HUGGINGFACE_API_KEY}`,
+      //       'Content-Type': 'application/json',
+      //     },
+      //     body: JSON.stringify({ inputs: userInput }),
+      //   }
       const response = await fetch(
-        'https://api-inference.huggingface.co/models/google/flan-t5-large',
+        'https://router.huggingface.co/hf-inference/models/Falconsai/medical_summarization',
         {
           method: 'POST',
           headers: {
@@ -146,8 +156,11 @@ const Chatbot: React.FC = () => {
 
       const data = await response.json();
       
-      if (Array.isArray(data) && data[0]?.generated_text) {
-        return data[0].generated_text;
+      // if (Array.isArray(data) && data[0]?.generated_text) {
+      //   return data[0].generated_text;
+      // }
+      if (Array.isArray(data) && data[0]?.summary_text) {
+        return data[0].summary_text;
       }
       throw new Error('Unexpected response format from API');
     } catch (error) {
@@ -179,7 +192,7 @@ const Chatbot: React.FC = () => {
               <div className="flex items-center">
                 <Bot className="h-6 w-6 mr-2" />
                 <div className="flex-1">
-                  <h3 className="font-medium">Arogyam Assistant</h3>
+                  <h3 className="font-medium">HealthBridge Assistant</h3>
                   <p className="text-xs text-white/80">
                     {isSpeaking ? 'Speaking...' : 'Online'}
                   </p>

@@ -45,7 +45,7 @@ const ServiceCards: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="text-3xl md:text-4xl font-bold text-gray-900"
           >
-            Our <span className="bg-gradient-to-r from-red-600 via-pink-500 to-orange-500 text-transparent bg-clip-text">Services</span>
+            Our <span className="bg-gradient-to-r from-sky-500 via-teal-400 to-emerald-400 text-transparent bg-clip-text">Services</span>
           </motion.h2>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}

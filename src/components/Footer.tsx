@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
           <div>
             <Link to="/" className="flex items-center">
               <span className="text-2xl font-bold bg-gradient-to-r from-red-600 via-pink-500 to-orange-500 text-transparent bg-clip-text">
-                Arogyam Kiosk
+                HealthBridge
               </span>
             </Link>
             <p className="mt-4 text-gray-400">
@@ -98,17 +98,17 @@ const Footer: React.FC = () => {
               <li className="flex items-start">
                 <MapPin className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
                 <span className="text-gray-400">
-                  Retang, Mahura<br />
-                  Bhubanewsar, Odisha 752054
+                  1138 Overlook Ave<br />
+                  Hayward, CA 94542
                 </span>
               </li>
               <li className="flex items-center">
                 <Phone className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
-                <span className="text-gray-400">+91 8252228793</span>
+                <span className="text-gray-400">+1 (415)-598-1744</span>
               </li>
               <li className="flex items-center">
                 <Mail className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
-                <span className="text-gray-400">sudhaanshuu@gmail.com</span>
+                <span className="text-gray-400">devzying@gmail.com</span>
               </li>
             </ul>
           </div>
@@ -116,7 +116,7 @@ const Footer: React.FC = () => {
         
         <div className="mt-12 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-400 text-sm">
-            &copy; {new Date().getFullYear()} Arogyam Kiosk. All rights reserved.
+            &copy; {new Date().getFullYear()} HealthBridge. All rights reserved.
           </p>
           <div className="mt-4 md:mt-0 flex space-x-6">
             <Link to="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors">

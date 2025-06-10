@@ -16,9 +16,13 @@ interface ProfileData {
 
 interface Appointment {
   id: string;
-  doctor: {
+  doctor?: {
     name: string;
     specialty: string;
+  };
+  user?: {
+    name: string;
+    city: string;
   };
   appointment_date: string;
   status: string;
@@ -32,16 +36,21 @@ const Profile: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<ProfileData>({});
   const [loading, setLoading] = useState(true);
+  const [isDoctor, setIsDoctor] = useState(false);
 
   useEffect(() => {
     fetchProfile();
-    fetchAppointments();
   }, []);
+
+  useEffect(() => {
+    if (profile.id) {
+      fetchAppointments();
+    }
+  }, [profile.id, isDoctor]);
 
   const fetchProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
         navigate('/login');
         return;
@@ -54,7 +63,6 @@ const Profile: React.FC = () => {
         .single();
 
       if (error && error.code === 'PGRST116') {
-        // Profile doesn't exist, create it
         const newProfile = {
           id: user.id,
           email: user.email,
@@ -81,6 +89,16 @@ const Profile: React.FC = () => {
         setProfile(profileData);
         setEditedProfile(profileData);
       }
+
+      const { data: doctorData } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+      if (doctorData) {
+        setIsDoctor(true);
+        console.log("Doctor is right.")
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast.error('Failed to load profile');
@@ -92,25 +110,30 @@ const Profile: React.FC = () => {
   const fetchAppointments = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) return;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('appointments')
         .select(`
           id,
           appointment_date,
           status,
           video_session_id,
-          doctor:doctor_id (
-            name,
-            specialty
-          )
+          ${isDoctor 
+            ? 'profiles!appointments_user_id_fkey1(name, city)' 
+            : 'doctor:doctor_id(name, specialty)'}
         `)
-        .eq('user_id', user.id)
         .order('appointment_date', { ascending: false });
 
+      if (isDoctor) {
+        query = query.eq('doctor_id', user.id);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
+
       setAppointments(data || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -150,24 +173,16 @@ const Profile: React.FC = () => {
 
       if (!sessionId) {
         sessionId = generateMeetingId();
-        
-        // Create new video session
+
         const { error: sessionError } = await supabase
           .from('video_sessions')
-          .insert([{
-            id: sessionId,
-            appointment_id: appointmentId,
-            status: 'active'
-          }]);
-
+          .insert([{ id: sessionId, appointment_id: appointmentId, status: 'active' }]);
         if (sessionError) throw sessionError;
 
-        // Update appointment with session ID
         const { error: updateError } = await supabase
           .from('appointments')
           .update({ video_session_id: sessionId })
           .eq('id', appointmentId);
-
         if (updateError) throw updateError;
       }
 
@@ -297,9 +312,9 @@ const Profile: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-semibold text-gray-900">
-                        Dr. {appointment.doctor.name}
+                        {isDoctor ? `${appointment.profiles?.name}` : `Dr. ${appointment.doctor?.name}`}
                       </h3>
-                      <p className="text-gray-600">{appointment.doctor.specialty}</p>
+                      <p className="text-gray-600">{isDoctor ? appointment.profiles?.city : appointment.doctor?.specialty}</p>
                       <div className="flex items-center mt-2 text-sm text-gray-500">
                         <Calendar className="h-4 w-4 mr-1" />
                         {format(new Date(appointment.appointment_date), 'PPP')}

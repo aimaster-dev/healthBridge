@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AgoraRTC, {
   IAgoraRTCClient,
   IAgoraRTCRemoteUser,
@@ -9,8 +9,6 @@ import { Video, Mic, MicOff, VideoOff, PhoneOff, UserCircle } from 'lucide-react
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
-const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-
 interface VideoCallProps {
   channelName: string;
   userName: string;
@@ -18,63 +16,151 @@ interface VideoCallProps {
 }
 
 const VideoCall = ({ channelName, userName, onLeave }: VideoCallProps) => {
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [microphones, setMicrophones] = useState<MediaDeviceInfo[]>([]);
+  const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([]);
+
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+  const [selectedMicId, setSelectedMicId] = useState<string>('');
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState<string>('');
+
   const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
   const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
   const [users, setUsers] = useState<IAgoraRTCRemoteUser[]>([]);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [hasJoined, setHasJoined] = useState(false);
+  const clientRef = useRef<IAgoraRTCClient | null>(null);
+  const remoteRefs = useRef<{ [uid: string]: HTMLDivElement | null }>({});
+  const localVideoRef = useRef<HTMLDivElement | null>(null);
+
+  if (!clientRef.current) {
+    clientRef.current = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+  }
+  const client = clientRef.current;
 
   useEffect(() => {
+    const loadDevices = async () => {
+      const cams = await AgoraRTC.getCameras();
+      const mics = await AgoraRTC.getMicrophones();
+      const spks = await AgoraRTC.getPlaybackDevices?.();
+      setCameras(cams);
+      setMicrophones(mics);
+      setSpeakers(spks || []);
+      if (cams[0]) setSelectedCameraId(cams[0].deviceId);
+      if (mics[0]) setSelectedMicId(mics[0].deviceId);
+      if (spks?.[0]) setSelectedSpeakerId(spks[0].deviceId);
+    };
+    loadDevices();
+  }, []);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
     const init = async () => {
+      if (!client || client.connectionState !== 'DISCONNECTED') {
+        console.warn('Client already connected or connecting');
+        return;
+      }
+
       try {
-        await client.join(
-          import.meta.env.VITE_AGORA_APP_ID,
-          channelName,
-          null,
-          null
-        );
+        const uid = `${userName}-${Math.floor(Math.random() * 100000)}`;
+        const joinPromise = client.join(import.meta.env.VITE_AGORA_APP_ID, channelName, null, uid);
 
-        // Set user name as client metadata
-        client.setClientRole('host', { level: 1, name: userName });
+        if (abortController.signal.aborted) return;
+        await joinPromise;
 
-        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        const videoTrack = await AgoraRTC.createCameraVideoTrack();
+        if (abortController.signal.aborted) return;
 
-        setLocalAudioTrack(audioTrack);
-        setLocalVideoTrack(videoTrack);
-        await client.publish([audioTrack, videoTrack]);
+        setHasJoined(true);
+        client.setClientRole('host');
+
+        toast.success('Connected to video call');
 
         client.on('user-published', async (user, mediaType) => {
           await client.subscribe(user, mediaType);
-          
+
+          setUsers(prev => {
+            const exists = prev.find(u => u.uid === user.uid);
+            return exists ? prev : [...prev, user];
+          });
+
+          if (mediaType === 'audio') user.audioTrack?.play();
           if (mediaType === 'video') {
-            setUsers(prevUsers => [...prevUsers, user]);
-          }
-          if (mediaType === 'audio') {
-            user.audioTrack?.play();
+            setTimeout(() => {
+              const el = remoteRefs.current[user.uid];
+              if (el && user.videoTrack) user.videoTrack.play(el);
+            }, 300);
           }
         });
 
-        client.on('user-unpublished', (user) => {
-          setUsers(prevUsers => prevUsers.filter(u => u.uid !== user.uid));
+        client.on('user-unpublished', user => {
+          setUsers(prev => prev.filter(u => u.uid !== user.uid));
         });
-
-        toast.success('Connected to video call');
-      } catch (error) {
-        console.error('Error initializing video call:', error);
-        toast.error('Failed to connect to video call');
-        onLeave();
+      } catch (err) {
+        if ((err as any).code !== 'OPERATION_ABORTED') {
+          console.error('Error initializing video call:', err);
+          toast.error('Failed to connect to video call');
+          onLeave();
+        }
       }
     };
 
     init();
 
     return () => {
-      localAudioTrack?.close();
-      localVideoTrack?.close();
-      client.leave();
+      abortController.abort();
+      const cleanup = async () => {
+        try {
+          localAudioTrack?.close();
+          localVideoTrack?.close();
+          await client.leave();
+        } catch (err) {
+          console.warn('Error during cleanup:', err);
+        }
+      };
+      void cleanup();
     };
   }, [channelName, userName]);
+
+  useEffect(() => {
+    const setupTracks = async () => {
+      if (
+        !client ||
+        !hasJoined ||
+        client.connectionState !== 'CONNECTED' ||
+        !selectedCameraId ||
+        !selectedMicId
+      ) return;
+
+      try {
+        localAudioTrack?.close();
+        localVideoTrack?.close();
+        await client.unpublish([localAudioTrack, localVideoTrack].filter(Boolean));
+
+        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({ microphoneId: selectedMicId });
+        const videoTrack = await AgoraRTC.createCameraVideoTrack({ cameraId: selectedCameraId });
+
+        setLocalAudioTrack(audioTrack);
+        setLocalVideoTrack(videoTrack);
+
+        await client.publish([audioTrack, videoTrack]);
+      } catch (error) {
+        console.error('Error updating tracks:', error);
+        toast.error('Could not update media tracks');
+      }
+    };
+
+    if (selectedCameraId && selectedMicId && hasJoined) {
+      setupTracks();
+    }
+  }, [selectedCameraId, selectedMicId, hasJoined]);
+
+  useEffect(() => {
+    if (localVideoTrack && localVideoRef.current) {
+      localVideoTrack.play(localVideoRef.current);
+    }
+  }, [localVideoTrack, isVideoEnabled]);
 
   const toggleVideo = async () => {
     if (localVideoTrack) {
@@ -99,102 +185,57 @@ const VideoCall = ({ channelName, userName, onLeave }: VideoCallProps) => {
   };
 
   return (
-    <div className="relative h-full bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-600/20 via-pink-500/20 to-orange-500/20 opacity-50" />
+    <div className="p-4 space-y-4">
+      <div className="flex gap-4">
+        <select onChange={e => setSelectedCameraId(e.target.value)} value={selectedCameraId}>
+          {cameras.map(c => <option key={c.deviceId} value={c.deviceId}>{c.label}</option>)}
+        </select>
+        <select onChange={e => setSelectedMicId(e.target.value)} value={selectedMicId}>
+          {microphones.map(m => <option key={m.deviceId} value={m.deviceId}>{m.label}</option>)}
+        </select>
+        <select onChange={e => {
+          setSelectedSpeakerId(e.target.value);
+          client.setPlaybackDevice?.(e.target.value);
+        }} value={selectedSpeakerId}>
+          {speakers.map(s => <option key={s.deviceId} value={s.deviceId}>{s.label}</option>)}
+        </select>
       </div>
 
-      <div className="relative z-10 h-full flex flex-col p-4">
-        <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Local Video */}
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-gray-800/50 rounded-xl overflow-hidden border border-white/10 backdrop-blur-sm"
-          >
-            {isVideoEnabled && localVideoTrack ? (
-              <div ref={node => node && localVideoTrack.play(node)} className="w-full h-full" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <UserCircle className="h-20 w-20 text-gray-400" />
-              </div>
-            )}
-            <div className="absolute bottom-4 left-4 text-white font-semibold bg-black/50 px-3 py-1 rounded-lg flex items-center">
-              <UserCircle className="h-4 w-4 mr-2" />
-              {userName} (You)
-              {!isVideoEnabled && " - Camera Off"}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="relative bg-gray-800/50 rounded-xl overflow-hidden border border-white/10 backdrop-blur-sm">
+          <div ref={localVideoRef} className="w-full h-[400px] bg-black" />
+          {!isVideoEnabled && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+              <UserCircle className="h-20 w-20 text-gray-400" />
             </div>
-          </motion.div>
-
-          {/* Remote Videos */}
-          {users.map(user => (
-            <motion.div
-              key={user.uid}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="relative bg-gray-800/50 rounded-xl overflow-hidden border border-white/10 backdrop-blur-sm"
-            >
-              {user.videoTrack ? (
-                <div ref={node => node && user.videoTrack?.play(node)} className="w-full h-full" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <UserCircle className="h-20 w-20 text-gray-400" />
-                </div>
-              )}
-              <div className="absolute bottom-4 left-4 text-white font-semibold bg-black/50 px-3 py-1 rounded-lg flex items-center">
-                <UserCircle className="h-4 w-4 mr-2" />
-                Remote User
-                {!user.videoTrack && " - Camera Off"}
-              </div>
-            </motion.div>
-          ))}
+          )}
+          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
+            {userName} (You)
+          </div>
         </div>
 
-        {/* Controls */}
-        <motion.div
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="flex justify-center gap-4 mt-4"
-        >
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={toggleVideo}
-            className={`p-4 rounded-full ${
-              isVideoEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
-            } transition-all`}
-          >
-            {isVideoEnabled ? (
-              <Video className="h-6 w-6 text-white" />
-            ) : (
-              <VideoOff className="h-6 w-6 text-white" />
-            )}
-          </motion.button>
+        {users.map(user => (
+          <div key={user.uid} className="relative bg-gray-700 rounded overflow-hidden">
+            <div
+              ref={(el) => {
+                remoteRefs.current[user.uid] = el;
+              }}
+              className="w-full h-[400px]"
+            />
+          </div>
+        ))}
+      </div>
 
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={toggleAudio}
-            className={`p-4 rounded-full ${
-              isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
-            } transition-all`}
-          >
-            {isAudioEnabled ? (
-              <Mic className="h-6 w-6 text-white" />
-            ) : (
-              <MicOff className="h-6 w-6 text-white" />
-            )}
-          </motion.button>
-
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={handleLeave}
-            className="p-4 rounded-full bg-red-600 hover:bg-red-700 transition-all"
-          >
-            <PhoneOff className="h-6 w-6 text-white" />
-          </motion.button>
-        </motion.div>
+      <div className="flex gap-4 justify-center">
+        <button onClick={toggleVideo} className="bg-blue-600 px-4 py-2 rounded text-white">
+          {isVideoEnabled ? 'Turn Video Off' : 'Turn Video On'}
+        </button>
+        <button onClick={toggleAudio} className="bg-blue-600 px-4 py-2 rounded text-white">
+          {isAudioEnabled ? 'Mute' : 'Unmute'}
+        </button>
+        <button onClick={handleLeave} className="bg-red-600 px-4 py-2 rounded text-white">
+          Leave
+        </button>
       </div>
     </div>
   );

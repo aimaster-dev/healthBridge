@@ -96,9 +96,12 @@ const Navbar: React.FC = () => {
                 transition={{ duration: 0.5 }}
                 className="flex items-center"
               >
-                <span className="text-2xl font-bold bg-gradient-to-r from-red-600 via-pink-500 to-orange-500 text-transparent bg-clip-text">
-                  Arogyam Kiosk
-                </span>
+                <div className="flex items-center space-x-2">
+                  <img src="src/public/logo.png" alt="HealthBridge Logo" className="h-10 w-10 object-contain" />
+                  <span className="text-2xl font-bold bg-gradient-to-r from-red-600 via-pink-500 to-orange-500 text-transparent bg-clip-text">
+                    HealthBridge
+                  </span>
+                </div>
               </motion.div>
             </Link>
           </div>

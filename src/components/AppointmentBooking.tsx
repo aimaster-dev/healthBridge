@@ -4,7 +4,7 @@ import { format, addDays, isToday, isTomorrow, isAfter, isBefore, addMinutes } f
 import { Calendar, Clock, Users, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useUserStore, useAppointmentStore } from '../lib/store';
-import { getDoctors, createAppointment } from '../lib/supabase';
+import { getDoctors, createAppointment, getDoctorAppointmentsForDate } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 interface Doctor {
@@ -52,21 +52,50 @@ const AppointmentBooking: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Generate available time slots
-    if (selectedDate) {
-      const times = [];
-      const startHour = 9; // 9 AM
-      const endHour = 17; // 5 PM
-      
+    const fetchAvailableTimes = async () => {
+      if (!selectedDoctor || !selectedDate) return;
+
+      const {data: appointments, error} = await getDoctorAppointmentsForDate(selectedDoctor.id, selectedDate);
+      if (error) {
+        console.error('Failed to fetch appointments: ', error)
+      }
+      // Generate available time slots
+      const takenSlots = appointments?.map(appt => {
+        const start = new Date(appt.appointment_date);
+        const end = new Date(start);
+        end.setMinutes(end.getMinutes() + appt.duration_minutes);
+        start.setSeconds(0, 0);
+        end.setSeconds(0, 0);
+        return {start, end};
+      });
+
+      const startHour = 9;
+      const endHour = 17;
+      const slotDuration = 30;
+      const slots: string[] = [];
+
       for (let hour = startHour; hour < endHour; hour++) {
-        for (let minute = 0; minute < 60; minute += 30) {
-          times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+        for (let minute = 0; minute < 60; minute += slotDuration) {
+          const slot = new Date(selectedDate);
+          slot.setHours(hour, minute, 0, 0);
+          const slotEnd = new Date(slot);
+          slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
+          console.log("start, end: ", takenSlots);
+          const isTaken = takenSlots.some(({ start, end }) =>
+            (slot >= start && slot < end) || (slotEnd > start && slotEnd < end)
+          );
+          console.log(slot, slotEnd, isTaken);
+          if (!isTaken) {
+            slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+          }
+          // console.log(slots)
         }
       }
-      
-      setAvailableTimes(times);
-    }
-  }, [selectedDate]);
+
+      setAvailableTimes(slots);
+    };
+    fetchAvailableTimes();
+  }, [selectedDate, selectedDoctor]);
 
   const handleDoctorSelect = (doctor: Doctor) => {
     setSelectedDoctor(doctor);

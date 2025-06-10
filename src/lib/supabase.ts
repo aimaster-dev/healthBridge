@@ -10,10 +10,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Auth functions
-export const signUp = async (email: string, password: string) => {
+export const signUp = async (name: String, email: string, password: string) => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        name: name,
+        role: 'patient'
+      }
+    }
   });
   return { data, error };
 };
@@ -94,6 +100,23 @@ export const getUserAppointments = async (userId: string) => {
     .from('appointments')
     .select('*, doctors(*)')
     .eq('user_id', userId);
+  return { data, error };
+};
+
+export const getDoctorAppointmentsForDate = async (doctorId: string, date: Date) => {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const { data, error } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('doctor_id', doctorId)
+    .gte('appointment_date', startOfDay.toISOString())
+    .lte('appointment_date', endOfDay.toISOString());
+
   return { data, error };
 };
 

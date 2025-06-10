@@ -15,7 +15,29 @@ interface DoctorRegistrationForm {
   qualification: string;
   licenseNumber: string;
   bio: string;
+  city: string;
 }
+
+const getInitialRating = (experience: number, qualification: string) => {
+  let rating = 3.0;
+
+  const expBonus = Math.min(experience, 10) * 0.1;
+  rating += expBonus;
+
+  switch (qualification.toLowerCase()) {
+    case 'high':
+      rating += 0.5;
+      break;
+    case 'medium':
+      rating += 0.3;
+      break;
+    case 'low':
+      rating += 0.1;
+      break;
+  }
+
+  return Math.min(rating, 5.0).toFixed(1); // cap at 5.0
+};
 
 const DoctorRegistration: React.FC = () => {
   const navigate = useNavigate();
@@ -40,6 +62,7 @@ const DoctorRegistration: React.FC = () => {
       if (authError) throw authError;
 
       if (authData.user) {
+        const rating = getInitialRating(data.experience, data.qualification);
         // Create doctor profile
         const { error: profileError } = await supabase
           .from('doctor_profiles')
@@ -50,10 +73,29 @@ const DoctorRegistration: React.FC = () => {
             experience: data.experience,
             qualification: data.qualification,
             license_number: data.licenseNumber,
-            bio: data.bio
+            bio: data.bio,
+            city: data.city,
+            image_url: '',
+            rating: Number(rating)
           });
 
         if (profileError) throw profileError;
+        
+        // Insert into doctors (public data)
+        const { error: doctorError } = await supabase
+          .from('doctors')
+          .insert({
+            id: authData.user.id,
+            name: data.name,
+            specialty: data.specialty,
+            experience: data.experience,
+            rating: Number(rating),
+            city: data.city,
+            image_url: '',
+            available: true,
+          });
+
+        if (doctorError) throw doctorError;
 
         toast.success('Registration successful! Please verify your email.');
         navigate('/verify-email');
@@ -222,6 +264,23 @@ const DoctorRegistration: React.FC = () => {
                   </p>
                 )}
               </div>
+            </div>
+
+            <div> {/* <-- Move this here */}
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                City
+              </label>
+              <input
+                type="text"
+                {...register('city', { required: 'City is required' })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-white"
+              />
+              {errors.city && (
+                <p className="mt-1 text-sm text-red-400 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {errors.city.message}
+                </p>
+              )}
             </div>
 
             <div>
